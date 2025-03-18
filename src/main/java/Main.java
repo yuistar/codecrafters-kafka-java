@@ -10,7 +10,7 @@ public class Main {
 
 //     Uncomment this block to pass the first stage
 
-     ServerSocket serverSocket = null;
+     ServerSocket serverSocket;
      Socket clientSocket = null;
      int port = 9092;
      try {
