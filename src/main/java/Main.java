@@ -51,6 +51,7 @@ public class Main {
 //            System.out.println("message_size=" + message_size);
             System.out.println("request_api_version=" + Arrays.toString(request_api_version));
             System.out.println("convert api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
+            outputStream.write(request_api_key);
             outputStream.write(correlation_id);
             if (request_api_version_short < 0 || request_api_version_short > 4) {
                 // write error code
