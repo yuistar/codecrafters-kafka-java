@@ -12,7 +12,7 @@ public class Main {
     }
 
     static byte[] toByteArray(short number) {
-        return ByteBuffer.allocate(4).putShort(number).array();
+        return ByteBuffer.allocate(2).putShort(number).array();
     }
 
     static Long fromByteArrayLong(byte[] bytes) {
@@ -51,11 +51,12 @@ public class Main {
 //            System.out.println("message_size=" + message_size);
             System.out.println("request_api_version=" + Arrays.toString(request_api_version));
             System.out.println("convert api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
-
-            if (request_api_version_short < 0 || request_api_version_short > 4)
+            outputStream.write(correlation_id);
+            if (request_api_version_short < 0 || request_api_version_short > 4) {
                 // write error code
                 outputStream.write(toByteArray(err_code));
-            outputStream.write(correlation_id);
+                System.out.println("error_code=" + Arrays.toString(toByteArray(err_code)));
+            }
         }
 
     }
