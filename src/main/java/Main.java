@@ -19,7 +19,7 @@ public class Main {
         return ByteBuffer.wrap(bytes).getLong();
     }
 
-    private static void listenToServerStream(InputStream inputStream, OutputStream outputStream) throws IOException {
+    private static void listenToServerStream(Socket clientSocket) throws IOException {
         /*
         message_size: 4 bytes long
         Header
@@ -32,6 +32,7 @@ public class Main {
 
         error_code => INT16
         */
+
         byte [] buffer = new byte[1024];
         byte [] message_size;
         byte [] request_api_key;
@@ -41,26 +42,31 @@ public class Main {
         short err_code = 35;
 
         int len;
-        if ( (len = inputStream.read(buffer)) != -1 ){
-            message_size = Arrays.copyOfRange(buffer, 0, 4);
-            request_api_key = Arrays.copyOfRange(buffer, 4, 6);
-            request_api_version = Arrays.copyOfRange(buffer, 6, 8);
-            correlation_id = Arrays.copyOfRange(buffer, 8, 12);
-            outputStream.write(message_size);
-            outputStream.write(request_api_version);
-//            System.out.println("message_size=" + message_size);
-            System.out.println("request_api_version=" + Arrays.toString(request_api_version));
-            System.out.println("convert api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
-            outputStream.write(request_api_key);
-            outputStream.write(correlation_id);
-            if (request_api_version_short < 0 || request_api_version_short > 4) {
-                // write error code
-                outputStream.write(toByteArray(err_code));
-                System.out.println("error_code=" + Arrays.toString(toByteArray(err_code)));
+        InputStream inputStream = clientSocket.getInputStream();
+        try (OutputStream outputStream =  clientSocket.getOutputStream() ){
+    //       outputStream.write(new byte[] {0,0,0,0,0,0,0,7});
+            if ( (len = inputStream.read(buffer)) != -1 ) {
+                System.out.println("read inputStream len=" + len);
+                message_size = Arrays.copyOfRange(buffer, 0, 4);
+                request_api_key = Arrays.copyOfRange(buffer, 4, 6);
+                request_api_version = Arrays.copyOfRange(buffer, 6, 8);
+                correlation_id = Arrays.copyOfRange(buffer, 8, 12);
+                outputStream.write(message_size);
+//                outputStream.write(request_api_key);
+//                outputStream.write(request_api_version);
+                System.out.println("request_api_version=" + Arrays.toString(request_api_version));
+                System.out.println("convert api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
+
+                outputStream.write(correlation_id);
+                if (request_api_version_short < 0 || request_api_version_short > 4) {
+                    // write error code
+                    outputStream.write(toByteArray(err_code));
+                    System.out.println("error_code=" + Arrays.toString(toByteArray(err_code)));
+                }
             }
         }
-
     }
+
     public static void main(String[] args){
     // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
@@ -76,11 +82,8 @@ public class Main {
             serverSocket.setReuseAddress(true);
            // Wait for connection from client.
             clientSocket = serverSocket.accept();
-            InputStream inputStream = clientSocket.getInputStream();
-            OutputStream outputStream =  clientSocket.getOutputStream();
-            listenToServerStream(inputStream, outputStream);
-            outputStream.close();
-//       outputStream.write(new byte[] {0,0,0,0,0,0,0,7});
+            listenToServerStream(clientSocket);
+
        } catch (IOException e) {
         System.out.println("IOException: " + e.getMessage());
         } finally {
