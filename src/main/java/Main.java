@@ -60,7 +60,7 @@ public class Main {
                 outputStream.write(correlation_id);
                 if (request_api_version_short < 0 || request_api_version_short > 4) {
                     // write error code
-                    outputStream.write(new byte[] {0, 35});
+                    outputStream.write(toByteArray(err_code));
                     System.out.println("error_code=" + Arrays.toString(toByteArray(err_code)));
                 }
             }
