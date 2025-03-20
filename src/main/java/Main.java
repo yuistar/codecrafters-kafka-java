@@ -7,11 +7,15 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 public class Main {
-    int fromByteArray(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).getInt();
+    static short fromByteArray(byte[] bytes) {
+        return ByteBuffer.wrap(bytes).getShort();
     }
 
-    Long fromByteArrayLong(byte[] bytes) {
+    static byte[] toByteArray(short number) {
+        return ByteBuffer.allocate(4).putShort(number).array();
+    }
+
+    static Long fromByteArrayLong(byte[] bytes) {
         return ByteBuffer.wrap(bytes).getLong();
     }
 
@@ -25,12 +29,17 @@ public class Main {
           client_id	NULLABLE_STRING	The client ID for the request
           TAG_BUFFER	COMPACT_ARRAY	Optional tagged fields
         Body
+
+        error_code => INT16
         */
         byte [] buffer = new byte[1024];
         byte [] message_size;
         byte [] request_api_key;
         byte [] request_api_version;
+        short request_api_version_short;
         byte [] correlation_id;
+        short err_code = 35;
+
         int len;
         if ( (len = inputStream.read(buffer)) != -1 ){
             message_size = Arrays.copyOfRange(buffer, 0, 4);
@@ -38,6 +47,14 @@ public class Main {
             request_api_version = Arrays.copyOfRange(buffer, 6, 8);
             correlation_id = Arrays.copyOfRange(buffer, 8, 12);
             outputStream.write(message_size);
+            outputStream.write(request_api_version);
+//            System.out.println("message_size=" + message_size);
+            System.out.println("request_api_version=" + Arrays.toString(request_api_version));
+            System.out.println("convert api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
+
+            if (request_api_version_short < 0 || request_api_version_short > 4)
+                // write error code
+                outputStream.write(toByteArray(err_code));
             outputStream.write(correlation_id);
         }
 
