@@ -54,13 +54,13 @@ public class Main {
                 outputStream.write(message_size);
 //                outputStream.write(request_api_key);
 //                outputStream.write(request_api_version);
-                System.out.println("request_api_version=" + Arrays.toString(request_api_version));
-                System.out.println("convert api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
+//                System.out.println("request_api_version=" + Arrays.toString(request_api_version));
+                System.out.println("short api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
 
                 outputStream.write(correlation_id);
                 if (request_api_version_short < 0 || request_api_version_short > 4) {
                     // write error code
-                    outputStream.write(toByteArray(err_code));
+                    outputStream.write(new byte[] {0, 35});
                     System.out.println("error_code=" + Arrays.toString(toByteArray(err_code)));
                 }
             }
