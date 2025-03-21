@@ -21,7 +21,7 @@ public class Main {
         return ByteBuffer.wrap(bytes).getInt();
     }
 
-    private static void handleSequentialRequests(DataInputStream input, OutputStream outputStream) throws IOException {
+    private static void handleSequentialRequests(DataInputStream input, OutputStream outputStream) throws IOException, InterruptedException {
         /*
         Request:
             message_size: 4 bytes long
@@ -38,55 +38,52 @@ public class Main {
             Body
                 error_code => INT16
         */
-        if (input.available() == 0) {
-            return;
-        } else {
-            try {
+
+        try {
 //            System.out.println("Handle request from " + input.available());
-                int message_size = input.readInt();  // request header
-                System.out.println("request message_size=" + message_size);
+            int message_size = input.readInt();  // request header
+            System.out.println("request message_size=" + message_size);
 
-                short request_api_key = input.readShort();
-                System.out.println("api_key=" + request_api_key);
-                short request_api_version = input.readShort();
-                System.out.println("api_version=" + request_api_version);
-                int correlation_id = input.readInt(); // will be in response header
-                System.out.println("correlation_id=" + correlation_id);
-                byte[] request_body = new byte[message_size - 8];
-                System.out.println("request_body len=" + request_body.length);
-                input.readFully(request_body);
-                System.out.println("request_body=" + Arrays.toString(request_body));
+            short request_api_key = input.readShort();
+            System.out.println("api_key=" + request_api_key);
+            short request_api_version = input.readShort();
+            System.out.println("api_version=" + request_api_version);
+            int correlation_id = input.readInt(); // will be in response header
+            System.out.println("correlation_id=" + correlation_id);
+            byte[] request_body = new byte[message_size - 8];
+            System.out.println("request_body len=" + request_body.length);
+            input.readFully(request_body);
+            System.out.println("request_body=" + Arrays.toString(request_body));
 
-                short error_code;
-                ByteArrayOutputStream response_body = new ByteArrayOutputStream();
-                if (request_api_version < 0 || request_api_version > 4) {
-                    error_code = 35;
-                    response_body.write(shortToByteArray(error_code));
-                } else {
-                    error_code = 0;
-                    response_body.write(shortToByteArray(error_code));
-                    response_body.write(2); // array size + 1
-                    response_body.write(request_api_key); // api_key (RequestKey.API_VERSIONS.type)
-                    response_body.write(shortToByteArray((short) 3));  // min version
-                    response_body.write(shortToByteArray((short) 4));  // max version
-                    response_body.write(0); // tagged fields
-                    response_body.write(intToByteArray(1)); //throttle time
-                    response_body.write(0); // tagged fields
+            short error_code;
+            ByteArrayOutputStream response_body = new ByteArrayOutputStream();
+            if (request_api_version < 0 || request_api_version > 4) {
+                error_code = 35;
+                response_body.write(shortToByteArray(error_code));
+            } else {
+                error_code = 0;
+                response_body.write(shortToByteArray(error_code));
+                response_body.write(2); // array size + 1
+                response_body.write(request_api_key); // api_key (RequestKey.API_VERSIONS.type)
+                response_body.write(shortToByteArray((short) 3));  // min version
+                response_body.write(shortToByteArray((short) 4));  // max version
+                response_body.write(0); // tagged fields
+                response_body.write(intToByteArray(1)); //throttle time
+                response_body.write(0); // tagged fields
 
-                }
-                System.out.println("response_body=" + Arrays.toString(response_body.toByteArray()));
-                int response_length = 4 + response_body.size();
-                System.out.println("response_size=" + response_length);
-
-                outputStream.write(intToByteArray(response_length));
-                outputStream.write(correlation_id);
-                outputStream.write(response_body.toByteArray());
-                outputStream.flush();
-
-                System.out.println("end processing a request");
-            } catch (EOFException e) {
-                System.err.println("EOF before reading all bytes" + e.getMessage());
             }
+            System.out.println("response_body=" + Arrays.toString(response_body.toByteArray()));
+            int response_length = 4 + response_body.size();
+            System.out.println("response_size=" + response_length);
+
+            outputStream.write(intToByteArray(response_length));
+            outputStream.write(correlation_id);
+            outputStream.write(response_body.toByteArray());
+            outputStream.flush();
+
+            System.out.println("end processing a request");
+        } catch (EOFException e) {
+            System.err.println("EOF before reading all bytes" + e.getMessage());
         }
     }
 
@@ -110,20 +107,22 @@ public class Main {
             OutputStream output = clientSocket.getOutputStream();
             int counter = 0;
             while (true) {
+                while (input.available() == 0) {
+                    System.out.println("No data available");
+                    Thread.sleep(100);
+                }
                 System.out.println("counter = " + counter);
 //                clientSocket.setReceiveBufferSize(1024);
                 System.out.println("client buffer size =" + clientSocket.getReceiveBufferSize());
                 handleSequentialRequests(input, output);
-//                if (input.available() == 0) {
-//                    System.out.println("input is completed read");
-//                    input.close();
-//                }
                 counter++;
             }
 //            outputStream.flush();
 //            dataInputStream.close();
         } catch (IOException e) {
             System.out.println("Main IOException: " + e.getMessage());
+        } catch (InterruptedException ie) {
+            System.out.println("Main InterruptedException: " + ie.getMessage());
         } finally {
             try {
                 if (clientSocket != null) {
