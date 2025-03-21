@@ -1,7 +1,4 @@
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -24,7 +21,7 @@ public class Main {
         return ByteBuffer.wrap(bytes).getInt();
     }
 
-    private static void listenToServerStream(Socket clientSocket) throws IOException {
+    private static void handleSequentialRequests(DataInputStream input, OutputStream outputStream) throws IOException {
         /*
         Request:
             message_size: 4 bytes long
@@ -41,62 +38,66 @@ public class Main {
             Body
                 error_code => INT16
         */
-
-        byte [] buffer = new byte[1024];
-        byte [] message_size = new byte[4];  // response header
-        byte [] request_api_key = new byte[2];
-        byte [] request_api_version = new byte[2];
-        short request_api_version_short;
-        byte [] correlation_id = new byte[4]; // response body
-        ByteArrayOutputStream response_body = new ByteArrayOutputStream();
-        short error_code;
-        int len;
-
-        InputStream inputStream = clientSocket.getInputStream();
-        try (OutputStream outputStream =  clientSocket.getOutputStream() ){
-            if ( (len = inputStream.read(buffer)) != -1 ) {
-                message_size = Arrays.copyOfRange(buffer, 0, 4);
-                request_api_key = Arrays.copyOfRange(buffer, 4, 6);
-                request_api_version = Arrays.copyOfRange(buffer, 6, 8);
-                System.out.println("short api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
-                correlation_id = Arrays.copyOfRange(buffer, 8, 12);
-                System.out.println("correlation_id byte array=" +  Arrays.toString(correlation_id));
-                System.out.println("correlation_id=" + fromByteArrayLong(correlation_id));
-                if (request_api_version_short < 0 || request_api_version_short > 4) {
-                    error_code = 35;
-                    response_body.write(shortToByteArray(error_code));
-                }
-                else {
-                    error_code = 0;
-                    response_body.write(shortToByteArray(error_code)); // array size + 1
-                    response_body.write(2);
-                    response_body.write(shortToByteArray((short) 18)); // api_key (RequestKey.API_VERSIONS.type)
-                    response_body.write(shortToByteArray((short) 3));  // min version
-                    response_body.write(shortToByteArray((short) 4));  // max version
-                    response_body.write(0); // tagged fields
-                    response_body.write(intToByteArray(1)); //throttle time
-                    response_body.write(0); // tagged fields
-                    System.out.println("response_body=" + Arrays.toString(response_body.toByteArray()));
-                }
-
-                int response_length = correlation_id.length + response_body.size();
-                outputStream.write(intToByteArray(response_length));
-                outputStream.write(correlation_id);
-                outputStream.write(response_body.toByteArray());
-                outputStream.flush();
+        try {
+//            System.out.println("Handle request from " + input.available());
+            int message_size = input.readInt();  // request header
+            System.out.println("request message_size=" + message_size);
+            if (message_size == 0) {
+                System.out.println("end handleSequentialRequest for message_size=" + message_size);
+                return;
             }
+            short request_api_key = input.readShort();
+            System.out.println("api_key=" + request_api_key);
+            short request_api_version = input.readShort();
+            System.out.println("api_version=" + request_api_version);
+            int correlation_id = input.readInt(); // will be in response header
+            System.out.println("correlation_id=" + correlation_id);
+            byte[] request_body = new byte[message_size - 8];
+            System.out.println("request_body len=" + request_body.length);
+            input.readFully(request_body);
+            System.out.println("request_body=" + Arrays.toString(request_body));
+
+            short error_code;
+            ByteArrayOutputStream response_body = new ByteArrayOutputStream();
+            if (request_api_version < 0 || request_api_version > 4) {
+                error_code = 35;
+                response_body.write(shortToByteArray(error_code));
+            } else {
+                error_code = 0;
+                response_body.write(shortToByteArray(error_code));
+                response_body.write(2); // array size + 1
+                response_body.write(request_api_key); // api_key (RequestKey.API_VERSIONS.type)
+                response_body.write(shortToByteArray((short) 3));  // min version
+                response_body.write(shortToByteArray((short) 4));  // max version
+                response_body.write(0); // tagged fields
+                response_body.write(intToByteArray(1)); //throttle time
+                response_body.write(0); // tagged fields
+
+            }
+            System.out.println("response_body=" + Arrays.toString(response_body.toByteArray()));
+            int response_length = 4 + response_body.size();
+            System.out.println("response_size=" + response_length);
+
+            outputStream.write(intToByteArray(response_length));
+            outputStream.write(correlation_id);
+            outputStream.write(response_body.toByteArray());
+            outputStream.flush();
+
+            System.out.println("end processing a request");
         }
-        inputStream.close();
+        catch (EOFException e) {
+            System.err.println("EOF before reading all bytes" + e.getMessage());
+        }
     }
 
     public static void main(String[] args){
     // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
-//     Uncomment this block to pass the first stage
+    // Uncomment this block to pass the first stage
         ServerSocket serverSocket;
         Socket clientSocket = null;
-        int port = 9092;
+        final int port = 9092;
         try {
             serverSocket = new ServerSocket(port);
            // Since the tester restarts your program quite often, setting SO_REUSEADDR
@@ -104,10 +105,25 @@ public class Main {
             serverSocket.setReuseAddress(true);
            // Wait for connection from client.
             clientSocket = serverSocket.accept();
-            listenToServerStream(clientSocket);
-
-       } catch (IOException e) {
-        System.out.println("IOException: " + e.getMessage());
+            System.out.println("client is connected= " + clientSocket.isConnected());
+            DataInputStream input = new DataInputStream(clientSocket.getInputStream());
+            OutputStream output = clientSocket.getOutputStream();
+            int counter = 0;
+            while (true) {
+                System.out.println("counter = " + counter);
+//                clientSocket.setReceiveBufferSize(1024);
+                System.out.println("client buffer size =" + clientSocket.getReceiveBufferSize());
+                handleSequentialRequests(input, output);
+//                if (input.available() == 0) {
+//                    System.out.println("input is completed read");
+//                    input.close();
+//                }
+                counter++;
+            }
+//            outputStream.flush();
+//            dataInputStream.close();
+        } catch (IOException e) {
+            System.out.println("Main IOException: " + e.getMessage());
         } finally {
             try {
                 if (clientSocket != null) {
