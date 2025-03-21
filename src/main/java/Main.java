@@ -103,13 +103,15 @@ public class Main {
            // Wait for connection from client.
             clientSocket = serverSocket.accept();
             System.out.println("client is connected= " + clientSocket.isConnected());
-            DataInputStream input = new DataInputStream(clientSocket.getInputStream());
-            OutputStream output = clientSocket.getOutputStream();
             int counter = 0;
             while (true) {
-                while (input.available() == 0) {
+                DataInputStream input = new DataInputStream(clientSocket.getInputStream());
+                OutputStream output = clientSocket.getOutputStream();
+
+                if (input.available() == 0) {
                     System.out.println("No data available");
-                    Thread.sleep(100);
+                    Thread.sleep(50);
+                    continue;
                 }
                 System.out.println("counter = " + counter);
 //                clientSocket.setReceiveBufferSize(1024);
