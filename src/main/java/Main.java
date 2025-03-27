@@ -75,10 +75,14 @@ public class Main {
                 }
                 else {
                     response_body.write(toByteArray(error_code));
-                    response_body.write(2);
+                    response_body.write(3); // number of api keys
                     response_body.write(request_api_key);
                     response_body.write(toByteArray((short) 3));
                     response_body.write(toByteArray((short) 4));
+                    response_body.write(0);
+                    response_body.write(new byte[] {0, 75});
+                    response_body.write(toByteArray((short) 0));
+                    response_body.write(toByteArray((short) 0));
                     response_body.write(0);
                     response_body.write(new byte[] {0, 0, 0, 1});
                     response_body.write(0);
