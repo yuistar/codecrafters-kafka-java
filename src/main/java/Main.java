@@ -1,3 +1,4 @@
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -15,8 +16,12 @@ public class Main {
         return ByteBuffer.allocate(2).putShort(number).array();
     }
 
-    static Long fromByteArrayLong(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).getLong();
+    static byte[] toByteArray(int number) {
+        return ByteBuffer.allocate(4).putInt(number).array();
+    }
+
+    static Integer fromByteArrayInt(byte[] bytes) {
+        return ByteBuffer.wrap(bytes).getInt();
     }
 
     private static void listenToServerStream(Socket clientSocket) throws IOException {
@@ -34,7 +39,7 @@ public class Main {
         */
 
         byte [] buffer = new byte[1024];
-        byte [] message_size;
+        int message_size;
         byte [] request_api_key;
         byte [] request_api_version;
         short request_api_version_short;
@@ -44,25 +49,43 @@ public class Main {
         int len;
         InputStream inputStream = clientSocket.getInputStream();
         try (OutputStream outputStream =  clientSocket.getOutputStream() ){
-    //       outputStream.write(new byte[] {0,0,0,0,0,0,0,7});
-            if ( (len = inputStream.read(buffer)) != -1 ) {
+            while ( (len = inputStream.read(buffer)) != -1 ) {
                 System.out.println("read inputStream len=" + len);
-                message_size = Arrays.copyOfRange(buffer, 0, 4);
+//                message_size = Arrays.copyOfRange(buffer, 0, 4);
                 request_api_key = Arrays.copyOfRange(buffer, 4, 6);
+                System.out.println("api_key=" + fromByteArray(request_api_key));
                 request_api_version = Arrays.copyOfRange(buffer, 6, 8);
+//                System.out.println("api_version=" + fromByteArray(request_api_version));
+                System.out.println("short api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
                 correlation_id = Arrays.copyOfRange(buffer, 8, 12);
-                outputStream.write(message_size);
+                System.out.println("correlation_id=" + fromByteArrayInt(correlation_id));
+                message_size = 4;
 //                outputStream.write(request_api_key);
 //                outputStream.write(request_api_version);
 //                System.out.println("request_api_version=" + Arrays.toString(request_api_version));
-                System.out.println("short api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
-
-                outputStream.write(correlation_id);
+                ByteArrayOutputStream response_body = new ByteArrayOutputStream();
+                response_body.write(correlation_id);
                 if (request_api_version_short < 0 || request_api_version_short > 4) {
                     // write error code
-                    outputStream.write(toByteArray(err_code));
                     System.out.println("error_code=" + Arrays.toString(toByteArray(err_code)));
+                    response_body.write(toByteArray(err_code));
+                    message_size += 2;
                 }
+                else {
+                    response_body.write(toByteArray((short) 0));
+                    response_body.write(2);
+                    response_body.write(request_api_key);
+                    response_body.write(toByteArray((short) 3));
+                    response_body.write(toByteArray((short) 4));
+                    response_body.write(0);
+                    response_body.write(new byte[] {0, 0, 0, 1});
+                    response_body.write(0);
+                }
+
+                outputStream.write(toByteArray(response_body.size()));
+                outputStream.write(response_body.toByteArray());
+
+//                outputStream.flush();
             }
         }
     }
