@@ -67,7 +67,7 @@ public class Main {
         short client_id_length;
         byte [] client_id;
         byte [] topics_array_length;
-        List<byte []> topics = new ArrayList<>();
+
         short error_code = 0;
 
         int len;
@@ -141,7 +141,6 @@ public class Main {
                     response_body.write(new byte[] {0, 0, 0, 1});  // throttle time
                     response_body.write(0);
                 } else {
-
                     error_code = UNSUPPORTED_VERSION;
                     System.out.println("error_code=" + Arrays.toString(toByteArray(error_code)));
                     response_body.write(toByteArray(error_code));
@@ -154,7 +153,7 @@ public class Main {
             }
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println(Arrays.toString(e.getStackTrace()));
         }
     }
 
@@ -162,7 +161,7 @@ public class Main {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
-//     Uncomment this block to pass the first stage
+    // Uncomment this block to pass the first stage
         ExecutorService executorService = Executors.newFixedThreadPool(THREAD_POOL_SIZE);
         try (ServerSocket serverSocket = new ServerSocket(PORT)){
 
