@@ -1,16 +1,14 @@
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import static kafka.util.Utils.*;
+
 
 public class Main {
 
@@ -23,26 +21,11 @@ public class Main {
     public static final short MIN_DESCRIBE_TOPIC_PARTITION = 0;
     public static final short MAX_DESCRIBE_TOPIC_PARTITION = 0;
 
+    public static final byte TAG_BUFFER = 0;
     public static final short UNKNOWN_TOPIC_OR_PARTITION_ERR = 3;
     public static final short UNSUPPORTED_VERSION = 35;
 
 
-
-    static short fromByteArray(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).getShort();
-    }
-
-    static byte[] toByteArray(short number) {
-        return ByteBuffer.allocate(2).putShort(number).array();
-    }
-
-    static byte[] toByteArray(int number) {
-        return ByteBuffer.allocate(4).putInt(number).array();
-    }
-
-    static Integer fromByteArrayInt(byte[] bytes) {
-        return ByteBuffer.wrap(bytes).getInt();
-    }
 
     private static void listenToServerStream(Socket clientSocket){
         /*
@@ -58,96 +41,142 @@ public class Main {
         error_code => INT16
         */
 
-        byte [] buffer = new byte[1024];
-        byte [] message_size;
-        byte [] request_api_key;
-        byte [] request_api_version;
-        short request_api_version_short;
-        byte [] correlation_id;
-        short client_id_length;
-        byte [] client_id;
-        byte [] topics_array_length;
+//        byte [] buffer = new byte[1024];
+        // Kafka API versions request (v4)
+        int message_size;
+        // RequestHeader
+        short request_api_key;
+        short request_api_version;
 
+        int correlation_id;
+        short client_id_length;
+        String client_id;
+
+        // DescribeTopicPartitions RequestBody
+        byte topics_array_length = 1;  // The length of the topics array + 1
+
+        // Error Response Body
         short error_code = 0;
 
-        int len;
         try (OutputStream outputStream =  clientSocket.getOutputStream() ){
-            InputStream inputStream = clientSocket.getInputStream();
-            while ( (len = inputStream.read(buffer)) != -1 ) {
-                System.out.println("read inputStream len=" + len);
-                message_size = Arrays.copyOfRange(buffer, 0, 4);
-                System.out.println("message_size=" + fromByteArray(message_size));
-                request_api_key = Arrays.copyOfRange(buffer, 4, 6);
-                System.out.println("api_key=" + fromByteArray(request_api_key));
-                request_api_version = Arrays.copyOfRange(buffer, 6, 8);
-                System.out.println("short api_version=" + (request_api_version_short = fromByteArray(request_api_version)));
-                correlation_id = Arrays.copyOfRange(buffer, 8, 12);
-                System.out.println("correlation_id=" + fromByteArrayInt(correlation_id));
-                client_id_length = fromByteArray(Arrays.copyOfRange(buffer, 12, 14));
-                client_id = Arrays.copyOfRange(buffer, 14, 14 + client_id_length);
-                System.out.println("client_id=" + Arrays.toString(client_id));
-                int request_body_cursor = 14 + client_id_length + 1;
-                topics_array_length = Arrays.copyOfRange(buffer, request_body_cursor, request_body_cursor + 1);
-                System.out.println("topics_array_length=" + topics_array_length[0]);
-                request_body_cursor ++;
-                ByteArrayOutputStream descTopicPartitions = new ByteArrayOutputStream();
-                for (byte b = 1; b < topics_array_length[0]; b++) {
-                    byte [] topic_name_length = Arrays.copyOfRange(buffer, request_body_cursor, request_body_cursor + 1);
-                    request_body_cursor ++;
-                    byte [] topic_name = Arrays.copyOfRange(buffer, request_body_cursor, request_body_cursor + topic_name_length[0]);
-                    String topicName = new String(topic_name, StandardCharsets.UTF_8);
-                    System.out.println("topic_length=" + topic_name_length[0]);
-                    System.out.println("topicName=" + topicName);
-                    request_body_cursor += topic_name_length[0];
-
-                    descTopicPartitions.write(new byte[] {0, 3}); // error code
-                    descTopicPartitions.write(topic_name_length);
-                    descTopicPartitions.write(topic_name);
-
-                    descTopicPartitions.write(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); // topic ID
-                    descTopicPartitions.write(0); // is Internal
-                    descTopicPartitions.write(1); // partitions array (1: empty)
-                    descTopicPartitions.write(new byte[] {0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0}); // topic authorized operations
-                    descTopicPartitions.write(0); // tag buffer
+            while ( true ) {
+                DataInputStream dataInputStream = new DataInputStream(clientSocket.getInputStream());
+                if (dataInputStream.available() == 0){
+                    System.out.println("No data available. Wait for 500 ms... ");
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException e) {
+                        System.err.println(e.getMessage());
+                    }
+                    continue;
                 }
 
-                ByteArrayOutputStream response_body = new ByteArrayOutputStream();
-                response_body.write(correlation_id);
+                System.out.println("processing new request with len= " + dataInputStream.available());
+                message_size = dataInputStream.readInt();
+                System.out.println("message_size=" + message_size);
+                request_api_key = dataInputStream.readShort();
+                System.out.println("api_key=" + request_api_key);
+                request_api_version = dataInputStream.readShort();
+                System.out.println("api_version=" + request_api_version);
+                correlation_id = dataInputStream.readInt();
+                System.out.println("correlation_id=" + correlation_id);
+                client_id_length = dataInputStream.readShort();
+                System.out.println("client_id_length=" + client_id_length);
+                if (client_id_length > 0) {
+                    int available = Math.min(client_id_length, dataInputStream.available());
+                    System.out.println("client_id available= " + available);
+                    try {
+                        client_id = new String(dataInputStream.readNBytes(available), StandardCharsets.UTF_8);
+                        System.out.println("client_id=" + client_id);
+                        if (dataInputStream.available() > 0) {
+                            dataInputStream.skipBytes(1);
+                        }
+                    } catch (IOException e) {
+                        System.err.println("Error reading client_id " + e.getMessage());
+                        System.err.println(Arrays.toString(e.getStackTrace()));
+                    }
+                }
 
-                if (fromByteArray(request_api_key) == DESCRIBE_TOPIC_PARTITIONS &&
-                        request_api_version_short == MIN_DESCRIBE_TOPIC_PARTITION) {
-                    response_body.write(0);                    // header tag buffer
-                    response_body.write(new byte[] {0, 0, 0, 0}); // throttle time
+                ByteArrayOutputStream descTopicPartitions = new ByteArrayOutputStream();
+                if (dataInputStream.available() > 0){
+                    topics_array_length = dataInputStream.readByte();
+                    System.out.println("topics_array_length=" + topics_array_length);
+
+                    for (byte b = 1; b < topics_array_length && dataInputStream.available() > 0; b++) {
+                        byte topic_name_length = dataInputStream.readByte();
+
+                        int available = Math.min(topic_name_length, dataInputStream.available());
+                        System.out.println("topic_name available= " + available);
+                        byte [] topic_name = dataInputStream.readNBytes(available);
+                        String topicName = new String(topic_name, StandardCharsets.UTF_8);
+
+                        System.out.println("topic_length=" + topic_name_length);
+                        System.out.println("topicName=" + topicName);
+
+                        descTopicPartitions.write(new byte[] {0, 3}); // error code
+                        descTopicPartitions.write(topic_name_length);
+                        descTopicPartitions.write(topic_name);
+
+                        descTopicPartitions.write(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); // topic ID
+                        descTopicPartitions.write(0); // is Internal
+                        descTopicPartitions.write(1); // partitions array (1: empty)
+                        descTopicPartitions.write(new byte[] {0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0}); // topic authorized operations
+                        descTopicPartitions.write(TAG_BUFFER);
+                    }
+                }
+
+                ByteArrayOutputStream response_body_bytearray = new ByteArrayOutputStream();
+                DataOutputStream response_body = new DataOutputStream(response_body_bytearray);
+                response_body.writeInt(correlation_id);
+
+                if (request_api_key == DESCRIBE_TOPIC_PARTITIONS &&
+                        request_api_version == MIN_DESCRIBE_TOPIC_PARTITION) {
+                    response_body.write(TAG_BUFFER);              // header tag buffer
+                    response_body.writeInt(0);                 // throttle time
                     response_body.write(topics_array_length);     // topic array length
                     response_body.write(descTopicPartitions.toByteArray());
                     response_body.write(0xFF);                 // next cursor 0xFF (null) or 0x01 (not null)
-                    response_body.write(0);                    // tag buffer
+                    response_body.write(TAG_BUFFER);
+                    descTopicPartitions.flush();
+                    descTopicPartitions.close();
                 }
-                else if ( fromByteArray(request_api_key) == API_VERSIONS &&
-                        request_api_version_short >= MIN_API_VERSION &&
-                        request_api_version_short <= MAX_API_VERSION ) {
-                    response_body.write(toByteArray(error_code));
-                    response_body.write(3); // number of api keys
-                    response_body.write(request_api_key);
-                    response_body.write(toByteArray((short) 3));
-                    response_body.write(toByteArray((short) 4));
-                    response_body.write(0);
+                else if ( request_api_key == API_VERSIONS &&
+                        request_api_version >= MIN_API_VERSION &&
+                        request_api_version <= MAX_API_VERSION ) {
+                    response_body.writeShort(error_code);
+                    // number of api keys
+                    response_body.write(3);
 
-                    response_body.write(toByteArray(DESCRIBE_TOPIC_PARTITIONS));
-                    response_body.write(toByteArray((short) 0));
-                    response_body.write(toByteArray((short) 0));
-                    response_body.write(0);
+                    response_body.writeShort(request_api_key);
+                    response_body.writeShort(3);
+                    response_body.writeShort(4);
+                    response_body.write(TAG_BUFFER);
 
-                    response_body.write(new byte[] {0, 0, 0, 1});  // throttle time
-                    response_body.write(0);
+                    response_body.writeShort(DESCRIBE_TOPIC_PARTITIONS);
+                    response_body.writeShort(0);
+                    response_body.writeShort(0);
+                    response_body.write(TAG_BUFFER);
+
+                    response_body.writeInt(1);  // throttle time
+                    response_body.write(TAG_BUFFER);
+
                 } else {
                     error_code = UNSUPPORTED_VERSION;
-                    System.out.println("error_code=" + Arrays.toString(toByteArray(error_code)));
-                    response_body.write(toByteArray(error_code));
+                    System.out.println("error_code=" + error_code);
+                    response_body.writeShort(error_code);
+                    response_body.write(0x00);
+                    response_body.writeInt(0);  // throttle time
+                    response_body.write(TAG_BUFFER);
                 }
 
-                outputStream.write(toByteArray(response_body.size()));
-                outputStream.write(response_body.toByteArray());
+                response_body.flush();
+                System.out.println("response_body size=" + response_body_bytearray.size());
+                outputStream.write(toByteArray(response_body_bytearray.size()));
+//                System.out.println("response_body_bytearray=" + Arrays.toString(response_body_bytearray.toByteArray()));
+                outputStream.write(response_body_bytearray.toByteArray());
+                response_body.close();
+                response_body_bytearray.flush();
+                response_body_bytearray.close();
 
                 outputStream.flush();
             }
