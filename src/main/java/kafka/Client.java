@@ -87,11 +87,11 @@ public class Client implements Runnable {
     private Response handle(Header header, Request request) {
         return switch (request.getApiKey()) {
             case ApiVersionsRequestV4.API_KEY -> new Response(
-                    new Header.V0(header.getCorrelationId()),
+                    new Header.V0(header.correlationId()),
                     handleApiVersionsRequest(header));
 
             case DescribeTopicPartitionsRequest.API_KEY -> new Response(
-                    new Header.V1(header.getCorrelationId()),
+                    new Header.V1(header.correlationId()),
                     handleDescribeTopicPartitionsRequest(header, (DescribeTopicPartitionsRequest) request)
             );
 
@@ -106,7 +106,7 @@ public class Client implements Runnable {
 
     private ApiVersionsResponseV4 handleApiVersionsRequest(Header header) {
         assert (header instanceof Header.V2);
-        final short apiVersion = ((Header.V2) header).getApiVersion();
+        final short apiVersion = ((Header.V2) header).apiVersion();
         if ( apiVersion >= ApiVersionsResponseV4.MIN_API_VERSION && apiVersion <= ApiVersionsResponseV4.MAX_API_VERSION){
             return new ApiVersionsResponseV4(
                     (short) 0,
@@ -122,7 +122,7 @@ public class Client implements Runnable {
 
     private DescribeTopicPartitionsResponse handleDescribeTopicPartitionsRequest(Header header, DescribeTopicPartitionsRequest request){
 
-        final short apiVersion = ((Header.V2) header).getApiVersion();
+        final short apiVersion = ((Header.V2) header).apiVersion();
         List<DescribeTopicPartitionsResponse.Topic> topics = new ArrayList<>();
         if ( apiVersion >= DescribeTopicPartitionsResponse.MIN_API_VERSION && apiVersion <= DescribeTopicPartitionsResponse.MAX_API_VERSION) {
 
