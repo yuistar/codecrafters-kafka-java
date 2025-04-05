@@ -20,6 +20,7 @@ public class Client implements Runnable {
 
     public static final short UNKNOWN_TOPIC_OR_PARTITION_ERR = 3;
     public static final short UNSUPPORTED_VERSION = 35;
+    public static final short UNKNOWN_TOPIC_ERR = 100;
 
     private final Socket clientSocket;
     private final DataInputStream dataInputStream;
@@ -150,7 +151,22 @@ public class Client implements Runnable {
 
     private FetchResponse handleFetchRequest(Header header, FetchRequest request) {
 
-        return new FetchResponse((short) 0, 0, 0);
+        List<FetchResponse.TopicResponses> topicResp = new ArrayList<>();
+        for (FetchRequest.Topic topic : request.topics()) {
+            UUID topicId = topic.topicId();
+            List<FetchResponse.PartitionRecord> partitionRecs = new ArrayList<>();
+            if (kafka.isTopicIDRegistered(topicId)) {
+                // add all partitions of the topic
+//                partitions = kafka.getPartitionsOfTopic(topicId);
+//                topics.add(new FetchResponse.TopicResponses((short) 0, topic.topicName(), topicId, partitions));
+                System.out.println("[TODO] process responses for topic=" + topicId);
+
+            } else {
+                partitionRecs.add(new FetchResponse.PartitionRecord(UNKNOWN_TOPIC_ERR, 0));
+                topicResp.add(new FetchResponse.TopicResponses(topicId, partitionRecs));
+            }
+        }
+        return new FetchResponse((short) 0, 0, 0, topicResp);
     }
 
     private void sendResponse(DataOutput output, Response response){

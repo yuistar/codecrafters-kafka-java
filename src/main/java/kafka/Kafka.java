@@ -12,7 +12,7 @@ import java.util.*;
 
 public class Kafka {
     private static final String TOPICS_METADATA = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log";
-    Map<String, kafka.record.Record.Topic> topics = new HashMap<>();
+    Map<String, Record.Topic> topics = new HashMap<>();
     Map<UUID, List<Record.Partition>> partitions = new HashMap<>();
 
     public Kafka() {
@@ -79,7 +79,12 @@ public class Kafka {
                     partition.replicas(), partition.inSyncReplicas(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()));
         }
         return res;
-
-
     }
+
+    public boolean isTopicIDRegistered(UUID topicId) {
+        Optional <Record.Topic> registeredTopic = topics.values().stream().filter(t -> t.getTopicId().equals(topicId)).findFirst();
+        return registeredTopic.isPresent();
+    }
+
+
 }

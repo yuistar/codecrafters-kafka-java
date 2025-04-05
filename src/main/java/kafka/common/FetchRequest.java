@@ -31,13 +31,13 @@ public record FetchRequest(List<Topic> topics) implements Request{
         return API_KEY;
     }
 
-    record Topic(UUID topicId){
-        static Topic deserialize(DataInput input) {
+    public record Topic(UUID topicId, List<Partition> topicPartitions){
+        public static Topic deserialize(DataInput input) {
             final var topicId = input.readUuid();
             final var partitions = input.readCompactArray(FetchRequest.Partition::deserialize);
 
             System.out.println("parsed FetchRequest.Topic " + topicId);
-            return new Topic(topicId);
+            return new Topic(topicId, partitions);
         }
     }
 
@@ -49,6 +49,7 @@ public record FetchRequest(List<Topic> topics) implements Request{
             final var lastFetchedEpoch = input.readSignedInt();
             final var logStartOffset = input.readSignedLong();
             final var partitionMaxBytes = input.readSignedInt();
+            System.out.println("deserialized partitionId= " + partitionId);
 
             return new Partition(partitionId);
         }
