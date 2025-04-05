@@ -37,11 +37,12 @@ public record FetchRequest(List<Topic> topics) implements Request{
             final var partitions = input.readCompactArray(FetchRequest.Partition::deserialize);
 
             System.out.println("parsed FetchRequest.Topic " + topicId);
+            System.out.println("parsed FetchRequest.Partitions size " + partitions.size());
             return new Topic(topicId, partitions);
         }
     }
 
-    record Partition(int partitionId) {
+    public record Partition(int partitionId) {
         static Partition deserialize(DataInput input) {
             final var partitionId = input.readSignedInt();
             final var currentLeaderEpoch = input.readSignedInt();

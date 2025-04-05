@@ -18,6 +18,7 @@ import java.util.function.Function;
 
 public class Client implements Runnable {
 
+    public static final short NO_ERROR = 0;
     public static final short UNKNOWN_TOPIC_OR_PARTITION_ERR = 3;
     public static final short UNSUPPORTED_VERSION = 35;
     public static final short UNKNOWN_TOPIC_ERR = 100;
@@ -156,17 +157,17 @@ public class Client implements Runnable {
             UUID topicId = topic.topicId();
             List<FetchResponse.PartitionRecord> partitionRecs = new ArrayList<>();
             if (kafka.isTopicIDRegistered(topicId)) {
-                // add all partitions of the topic
-//                partitions = kafka.getPartitionsOfTopic(topicId);
-//                topics.add(new FetchResponse.TopicResponses((short) 0, topic.topicName(), topicId, partitions));
-                System.out.println("[TODO] process responses for topic=" + topicId);
-
+                System.out.println("process responses for topic=" + topicId);
+                for (final var p : topic.topicPartitions()) {
+                    partitionRecs.add(new FetchResponse.PartitionRecord(NO_ERROR, p.partitionId()));
+                }
             } else {
                 partitionRecs.add(new FetchResponse.PartitionRecord(UNKNOWN_TOPIC_ERR, 0));
-                topicResp.add(new FetchResponse.TopicResponses(topicId, partitionRecs));
+
             }
+            topicResp.add(new FetchResponse.TopicResponses(topicId, partitionRecs));
         }
-        return new FetchResponse((short) 0, 0, 0, topicResp);
+        return new FetchResponse(NO_ERROR, 0, 0, topicResp);
     }
 
     private void sendResponse(DataOutput output, Response response){
@@ -180,94 +181,4 @@ public class Client implements Runnable {
         output.writeInt(bytes.length);
         output.writeRawBytes(bytes);
     }
-
-
-//            ByteArrayOutputStream descTopicPartitions = new ByteArrayOutputStream();
-//            if (dataInputStream.available() > 0){
-//                topics_array_length = dataInputStream.readByte();
-//                System.out.println("topics_array_length=" + topics_array_length);
-//
-//                for (byte b = 1; b < topics_array_length && dataInputStream.available() > 0; b++) {
-//                    byte topic_name_length = dataInputStream.readByte();
-//
-//                    int available = Math.min(topic_name_length, dataInputStream.available());
-//                    System.out.println("topic_name available= " + available);
-//                    byte [] topic_name = dataInputStream.readNBytes(available);
-//                    String topicName = new String(topic_name, StandardCharsets.UTF_8);
-//
-//                    System.out.println("topic_name_length=" + topic_name_length);
-//                    System.out.println("topicName=" + topicName +".");
-////                        if (isTopicExist(topicName)){
-//                    descTopicPartitions.write(new byte[] {0, 0});
-////                        } else {
-////                            descTopicPartitions.write(new byte[] {0, 3}); // error code
-////                        }
-//
-//                    descTopicPartitions.write(topic_name_length);
-//                    descTopicPartitions.write(topic_name);
-//
-//                    descTopicPartitions.write(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}); // topic ID
-//                    descTopicPartitions.write(0); // is Internal
-//                    descTopicPartitions.write(1); // partitions array (1: empty)
-//                    descTopicPartitions.write(new byte[] {0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0}); // topic authorized operations
-//                    descTopicPartitions.write(TAG_BUFFER);
-//                }
-//            }
-//
-//            ByteArrayOutputStream response_body_bytearray = new ByteArrayOutputStream();
-//            DataOutputStream response_body = new DataOutputStream(response_body_bytearray);
-//            response_body.writeInt(correlation_id);
-//
-//            if (request_api_key == DESCRIBE_TOPIC_PARTITIONS &&
-//                    request_api_version == MIN_DESCRIBE_TOPIC_PARTITION) {
-//                response_body.write(TAG_BUFFER);              // header tag buffer
-//                response_body.writeInt(0);                 // throttle time
-//                response_body.write(topics_array_length);     // topic array length
-//                response_body.write(descTopicPartitions.toByteArray());
-//                response_body.write(0xFF);                 // next cursor 0xFF (null) or 0x01 (not null)
-//                response_body.write(TAG_BUFFER);
-//                descTopicPartitions.flush();
-//                descTopicPartitions.close();
-//            }
-//            else if ( request_api_key == API_VERSIONS &&
-//                    request_api_version >= MIN_API_VERSION &&
-//                    request_api_version <= MAX_API_VERSION ) {
-//                response_body.writeShort(error_code);
-//                // number of api keys
-//                response_body.write(3);
-//
-//                response_body.writeShort(request_api_key);
-//                response_body.writeShort(3);
-//                response_body.writeShort(4);
-//                response_body.write(TAG_BUFFER);
-//
-//                response_body.writeShort(DESCRIBE_TOPIC_PARTITIONS);
-//                response_body.writeShort(0);
-//                response_body.writeShort(0);
-//                response_body.write(TAG_BUFFER);
-//
-//                response_body.writeInt(1);  // throttle time
-//                response_body.write(TAG_BUFFER);
-//
-//            } else {
-//                error_code = UNSUPPORTED_VERSION;
-//                System.out.println("error_code=" + error_code);
-//                response_body.writeShort(error_code);
-//                response_body.write(0x00);
-//                response_body.writeInt(0);  // throttle time
-//                response_body.write(TAG_BUFFER);
-//            }
-//
-//            response_body.flush();
-//            System.out.println("response_body size=" + response_body_bytearray.size());
-//            outputStream.write(toByteArray(response_body_bytearray.size()));
-////                System.out.println("response_body_bytearray=" + Arrays.toString(response_body_bytearray.toByteArray()));
-//            outputStream.write(response_body_bytearray.toByteArray());
-//            response_body.close();
-//            response_body_bytearray.flush();
-//            response_body_bytearray.close();
-//
-//            outputStream.flush();
-//        }
-
 }
