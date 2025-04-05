@@ -1,7 +1,12 @@
 package kafka.util;
 
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.IllegalFormatException;
+import java.util.UUID;
 
 public final class Utils {
 
@@ -15,6 +20,18 @@ public final class Utils {
 
     public static byte[] toByteArray(int number) {
         return ByteBuffer.allocate(4).putInt(number).array();
+    }
+
+    public static UUID getUUID(byte[] bytes) {
+        if (bytes.length != 16) {
+            throw new IllegalArgumentException("Byte array must be 16 bytes long");
+        }
+
+        ByteBuffer byteBuffer = ByteBuffer.wrap(bytes);
+        long mostSignificantBits = byteBuffer.getLong();
+        long leastSignificantBits = byteBuffer.getLong();
+
+        return new UUID(mostSignificantBits, leastSignificantBits);
     }
 
     public static Integer fromByteArrayInt(byte[] bytes) {
@@ -118,7 +135,13 @@ public final class Utils {
     public static byte[] readBytes(ByteBuffer buffer) {
         return Utils.readBytes(buffer, 0, buffer.limit());
     }
+//    public static int readVarint(DataInputStream dataInputStream) throws IOException {
+//        return readVarint(ByteBuffer.wrap(dataInputStream.readNBytes(1)));
+//    }
 
+    public static int readUnsignedVarint(DataInputStream dataInputStream) throws IOException {
+        return readUnsignedVarint(ByteBuffer.wrap(dataInputStream.readNBytes(1)));
+    }
     /**
      * Read an integer stored in variable-length format using zig-zag decoding from
      * <a href="http://code.google.com/apis/protocolbuffers/docs/encoding.html"> Google Protocol Buffers</a>.
@@ -164,6 +187,54 @@ public final class Utils {
                     } else {
                         result |= (tmp & 127) << 21;
                         result |= (tmp = buffer.get()) << 28;
+                        if (tmp < 0) {
+                            throw new IllegalArgumentException(String.valueOf(result));
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+    }
+
+    /**
+     * Read an integer stored in variable-length format using unsigned decoding from
+     * <a href="http://code.google.com/apis/protocolbuffers/docs/encoding.html"> Google Protocol Buffers</a>.
+     *
+     * The implementation is based on Netty's decoding of varint.
+     * @see <a href="https://github.com/netty/netty/blob/59aa6e635b9996cf21cd946e64353270679adc73/codec/src/main/java/io/netty/handler/codec/protobuf/ProtobufVarint32FrameDecoder.java#L73">Netty's varint decoding</a>
+     *
+     * @param in The input to read from
+     * @return The integer read
+     *
+     * @throws IllegalArgumentException if variable-length value does not terminate after 5 bytes have been read
+     * @throws IOException              if {@link InputStream} throws {@link IOException}
+     * @throws EOFException             if {@link InputStream} throws {@link EOFException}
+     */
+
+    public static int readVarint(InputStream in) throws IOException {
+        return readUnsignedVarint(in);
+    }
+
+    static int readUnsignedVarint(InputStream in) throws IOException {
+        byte tmp = (byte) in.read();
+        if (tmp >= 0) {
+            return tmp;
+        } else {
+            int result = tmp & 127;
+            if ((tmp = (byte) in.read()) >= 0) {
+                result |= tmp << 7;
+            } else {
+                result |= (tmp & 127) << 7;
+                if ((tmp = (byte) in.read()) >= 0) {
+                    result |= tmp << 14;
+                } else {
+                    result |= (tmp & 127) << 14;
+                    if ((tmp = (byte) in.read()) >= 0) {
+                        result |= tmp << 21;
+                    } else {
+                        result |= (tmp & 127) << 21;
+                        result |= (tmp = (byte) in.read()) << 28;
                         if (tmp < 0) {
                             throw new IllegalArgumentException(String.valueOf(result));
                         }
