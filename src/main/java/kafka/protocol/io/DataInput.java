@@ -65,8 +65,7 @@ public interface DataInput {
         try {
             return asString(readCompactBytes());
         } catch (Exception e) {
-            System.out.println("cause I'm desperate");
-            return null;
+            throw new RuntimeException(e);
         }
     }
 
@@ -83,8 +82,7 @@ public interface DataInput {
 
             return items;
         } catch (Exception e) {
-            System.out.println("cause I'm desperate");
-            return null;
+            throw new RuntimeException(e);
         }
     }
 

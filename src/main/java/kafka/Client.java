@@ -31,6 +31,7 @@ public class Client implements Runnable {
     static {
         deserializerMap.put(ApiVersionsRequestV4.API_KEY, ApiVersionsRequestV4::deserialize);
         deserializerMap.put(DescribeTopicPartitionsRequest.API_KEY, DescribeTopicPartitionsRequest::deserialize);
+        deserializerMap.put(FetchRequest.API_KEY, FetchRequest::deserialize);
 
         apiKeys.add(new ApiVersionsResponseV4.Key(ApiVersionsResponseV4.API_KEY, ApiVersionsResponseV4.MIN_API_VERSION, ApiVersionsResponseV4.MAX_API_VERSION));
         apiKeys.add(new ApiVersionsResponseV4.Key(DescribeTopicPartitionsResponse.API_KEY, DescribeTopicPartitionsResponse.MIN_API_VERSION, DescribeTopicPartitionsResponse.MAX_API_VERSION));
@@ -97,10 +98,10 @@ public class Client implements Runnable {
                     handleDescribeTopicPartitionsRequest(header, (DescribeTopicPartitionsRequest) request)
             );
 
-//            case FetchRequestV16 fetchRequest -> new Response(
-//                    new Header.V1(request.header().correlationId()),
-//                    handleFetchRequest(fetchRequest)
-//            );
+            case FetchRequest.API_KEY -> new Response(
+                    new Header.V1(header.correlationId()),
+                    handleFetchRequest(header, (FetchRequest) request)
+            );
 
             default -> null;
         };
@@ -127,7 +128,6 @@ public class Client implements Runnable {
         final short apiVersion = ((Header.V2) header).apiVersion();
         List<DescribeTopicPartitionsResponse.Topic> topics = new ArrayList<>();
         if ( apiVersion >= DescribeTopicPartitionsResponse.MIN_API_VERSION && apiVersion <= DescribeTopicPartitionsResponse.MAX_API_VERSION) {
-
             // check if topic name in system topics, get topic Id
             for (var topic : request.getTopics()) {
                 UUID topicId = kafka.getRegisteredTopicID(topic.topicName());
@@ -144,9 +144,13 @@ public class Client implements Runnable {
 
         } else {
             System.out.println("unsupport apiverion: " + apiVersion + " for apikey " + request.getApiKey());
-
         }
         return new DescribeTopicPartitionsResponse(topics);
+    }
+
+    private FetchResponse handleFetchRequest(Header header, FetchRequest request) {
+
+        return new FetchResponse((short) 0, 0, 0);
     }
 
     private void sendResponse(DataOutput output, Response response){
