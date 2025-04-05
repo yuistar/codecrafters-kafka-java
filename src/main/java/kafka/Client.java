@@ -34,6 +34,8 @@ public class Client implements Runnable {
 
         apiKeys.add(new ApiVersionsResponseV4.Key(ApiVersionsResponseV4.API_KEY, ApiVersionsResponseV4.MIN_API_VERSION, ApiVersionsResponseV4.MAX_API_VERSION));
         apiKeys.add(new ApiVersionsResponseV4.Key(DescribeTopicPartitionsResponse.API_KEY, DescribeTopicPartitionsResponse.MIN_API_VERSION, DescribeTopicPartitionsResponse.MAX_API_VERSION));
+        apiKeys.add(new ApiVersionsResponseV4.Key(FetchResponse.API_KEY, FetchResponse.MIN_API_VERSION, FetchResponse.MAX_API_VERSION));
+
     }
 
     public Client(Socket clientSocket, Kafka kafka) throws IOException {
