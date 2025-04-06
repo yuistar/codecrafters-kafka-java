@@ -143,11 +143,11 @@ public class Client implements Runnable {
                     topics.add(new DescribeTopicPartitionsResponse.Topic(UNKNOWN_TOPIC_OR_PARTITION_ERR, topic.topicName(), new UUID(0, 0), partitions));
                 }
             }
-
+            return new DescribeTopicPartitionsResponse(topics);
         } else {
             System.out.println("unsupport apiverion: " + apiVersion + " for apikey " + request.getApiKey());
+            return new DescribeTopicPartitionsResponse(new ArrayList<>());
         }
-        return new DescribeTopicPartitionsResponse(topics);
     }
 
     private FetchResponse handleFetchRequest(Header header, FetchRequest request) {

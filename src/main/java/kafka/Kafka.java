@@ -19,11 +19,11 @@ public class Kafka {
     Map<UUID, List<Record.Partition>> partitions = new HashMap<>();
 
     public Kafka() {
-        try (final var fileInputStream = new FileInputStream(TOPICS_METADATA)) {
-            System.out.println(HexFormat.ofDelimiter("").formatHex(fileInputStream.readAllBytes()));
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+//        try (final var fileInputStream = new FileInputStream(TOPICS_METADATA)) {
+//            System.out.println(HexFormat.ofDelimiter("").formatHex(fileInputStream.readAllBytes()));
+//        } catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
 
         int counter = 0;
         try (FileInputStream fileInputStream = new FileInputStream(TOPICS_METADATA)) {
@@ -66,8 +66,8 @@ public class Kafka {
     public byte[] readMessageFile(String topicName, int partitionId) {
         String filePath = String.format(TOPIC_PARTITION_FORMAT, topicName, partitionId) + "/00000000000000000000.log";
         try (final var fileInputStream = new FileInputStream(TOPICS_METADATA)) {
-            System.out.println("debug logging of " + filePath);
-            System.out.println(HexFormat.ofDelimiter("").formatHex(fileInputStream.readAllBytes()));
+//            System.out.println("debug logging of " + filePath);
+//            System.out.println(HexFormat.ofDelimiter("").formatHex(fileInputStream.readAllBytes()));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -90,12 +90,6 @@ public class Kafka {
         return topic != null ? topic.getTopicId() : null;
     }
 
-    public String getRegisteredTopicName(UUID topicId) {
-        Optional <Record.Topic> registeredTopic = topics.values().stream().filter(t -> t.getTopicId().equals(topicId)).findFirst();
-        return registeredTopic.isPresent() ? registeredTopic.get().name() : "UNKNOWN_TOPIC_ID";
-
-    }
-
     public List<DescribeTopicPartitionsResponse.Partition> getPartitionsOfTopic(UUID topicId) {
         List<DescribeTopicPartitionsResponse.Partition> res = new ArrayList<>();
         List<Record.Partition> partitionList = partitions.get(topicId);
@@ -110,6 +104,13 @@ public class Kafka {
         Optional <Record.Topic> registeredTopic = topics.values().stream().filter(t -> t.getTopicId().equals(topicId)).findFirst();
         return registeredTopic.isPresent();
     }
+
+    public String getRegisteredTopicName(UUID topicId) {
+        Optional <Record.Topic> registeredTopic = topics.values().stream().filter(t -> t.getTopicId().equals(topicId)).findFirst();
+        return registeredTopic.isPresent() ? registeredTopic.get().name() : "UNKNOWN_TOPIC_ID";
+
+    }
+
 
 
 }

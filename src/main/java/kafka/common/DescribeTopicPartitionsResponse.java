@@ -2,7 +2,6 @@ package kafka.common;
 
 import kafka.protocol.io.DataOutput;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
