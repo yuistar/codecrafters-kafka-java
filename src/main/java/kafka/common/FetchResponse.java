@@ -28,12 +28,9 @@ public record FetchResponse(short errorCode, int throttleTimeInMs, int sessionId
         }
     }
 
-    public record PartitionRecord(short errorCode, int partitionId) {
+    public record PartitionRecord(short errorCode, int partitionId, byte[] recordBytes) {
         public void serialize(DataOutput output) {
-            System.out.println("partitionId= " + partitionId);
             output.writeInt(partitionId);
-
-            System.out.println("errorCode= " + errorCode);
             output.writeShort(errorCode);
             // high_watermark
             output.writeLong(0L);
@@ -46,7 +43,7 @@ public record FetchResponse(short errorCode, int throttleTimeInMs, int sessionId
             // preferred_read_replica
             output.writeInt(0);
             // record_set
-            output.writeCompactArray(new ArrayList<>(), Transaction::serialize);
+            output.writeCompactBytes(recordBytes);
 
             output.skipEmptyTaggedFieldArray();
         }

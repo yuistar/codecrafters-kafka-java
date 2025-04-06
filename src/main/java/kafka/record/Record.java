@@ -29,10 +29,6 @@ public interface Record {
         public String getTopicName() {return name;}
         public UUID getTopicId() {return id;}
 
-        public boolean equals(String topicName){
-            return name.equals(topicName);
-        }
-
         public static Topic deserialize(DataInput input){
             final var name = input.readCompactString();
             final var id = input.readUuid();

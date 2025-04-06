@@ -158,12 +158,13 @@ public class Client implements Runnable {
             List<FetchResponse.PartitionRecord> partitionRecs = new ArrayList<>();
             if (kafka.isTopicIDRegistered(topicId)) {
                 System.out.println("process responses for topic=" + topicId);
+                String topicName = kafka.getRegisteredTopicName(topicId);
                 for (final var p : topic.topicPartitions()) {
-                    partitionRecs.add(new FetchResponse.PartitionRecord(NO_ERROR, p.partitionId()));
+                    int partitionId = p.partitionId();
+                    partitionRecs.add(new FetchResponse.PartitionRecord(NO_ERROR, p.partitionId(), kafka.readMessageFile(topicName, partitionId)));
                 }
             } else {
-                partitionRecs.add(new FetchResponse.PartitionRecord(UNKNOWN_TOPIC_ERR, 0));
-
+                partitionRecs.add(new FetchResponse.PartitionRecord(UNKNOWN_TOPIC_ERR, 0, new byte[]{}));
             }
             topicResp.add(new FetchResponse.TopicResponses(topicId, partitionRecs));
         }

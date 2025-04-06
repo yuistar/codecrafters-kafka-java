@@ -11,7 +11,10 @@ import java.io.IOException;
 import java.util.*;
 
 public class Kafka {
-    private static final String TOPICS_METADATA = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log";
+    private static final String BASE_DIR = "/tmp/kraft-combined-logs/";
+    private static final String TOPICS_METADATA = BASE_DIR + "__cluster_metadata-0/00000000000000000000.log";
+    private static final String TOPIC_PARTITION_FORMAT = BASE_DIR + "%s-%d";
+
     Map<String, Record.Topic> topics = new HashMap<>();
     Map<UUID, List<Record.Partition>> partitions = new HashMap<>();
 
@@ -59,6 +62,22 @@ public class Kafka {
         }
     }
 
+
+    public byte[] readMessageFile(String topicName, int partitionId) {
+        String filePath = String.format(TOPIC_PARTITION_FORMAT, topicName, partitionId) + "/00000000000000000000.log";
+        try (final var fileInputStream = new FileInputStream(TOPICS_METADATA)) {
+            System.out.println("debug logging of " + filePath);
+            System.out.println(HexFormat.ofDelimiter("").formatHex(fileInputStream.readAllBytes()));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        try (FileInputStream fileInputStream = new FileInputStream(filePath)){
+            return fileInputStream.readAllBytes();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
     private Record.Topic getRegisteredTopic(String topicName) {
         return topics.getOrDefault(topicName, null);
     }
@@ -69,6 +88,12 @@ public class Kafka {
             System.err.println("Topic " + topicName + " not found");
         }
         return topic != null ? topic.getTopicId() : null;
+    }
+
+    public String getRegisteredTopicName(UUID topicId) {
+        Optional <Record.Topic> registeredTopic = topics.values().stream().filter(t -> t.getTopicId().equals(topicId)).findFirst();
+        return registeredTopic.isPresent() ? registeredTopic.get().name() : "UNKNOWN_TOPIC_ID";
+
     }
 
     public List<DescribeTopicPartitionsResponse.Partition> getPartitionsOfTopic(UUID topicId) {
